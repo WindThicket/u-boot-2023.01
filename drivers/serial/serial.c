@@ -186,7 +186,7 @@ int serial_initialize(void)
 	mtk_serial_initialize();
 
 	serial_assign(default_serial_console()->name);
-
+	printf("serial_initialize");
 	return 0;
 }
 

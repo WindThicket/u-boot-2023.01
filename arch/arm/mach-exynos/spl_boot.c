@@ -18,11 +18,12 @@
 #include <asm/arch/power.h>
 #include <asm/arch/spl.h>
 #include <asm/arch/spi.h>
+#include <debug_uart.h>
 
 #include "common_setup.h"
 #include "clock_init.h"
 
-#ifdef CONFIG_ARCH_EXYNOS5
+#ifdef CONFIG_ARCH_EXYNOS5 
 #define SECURE_BL1_ONLY
 
 /* Secure FW size configuration */
@@ -31,28 +32,41 @@
 #else
 #define SEC_FW_SIZE 0
 #endif
-
-/* Configuration of BL1, BL2, ENV Blocks on mmc */
-#define RES_BLOCK_SIZE	(512)
-#define BL1_SIZE	(16 << 10) /*16 K reserved for BL1*/
-#define BL2_SIZE	(512UL << 10UL) /* 512 KB */
-
+#define CONFIG_SERIAL2
+#define CONFIG_SPL_BUILD
+/*
 #define BL1_OFFSET	(RES_BLOCK_SIZE + SEC_FW_SIZE)
 #define BL2_OFFSET	(BL1_OFFSET + BL1_SIZE)
+*/
 
 /* U-Boot copy size from boot Media to DRAM.*/
+/*
 #define BL2_START_OFFSET	(BL2_OFFSET/512)
 #define BL2_SIZE_BLOC_COUNT	(BL2_SIZE/512)
+*/
 
-#define EXYNOS_COPY_SPI_FNPTR_ADDR	0x02020058
-#define SPI_FLASH_UBOOT_POS	(SEC_FW_SIZE + BL1_SIZE)
+#define CONFIG_CLK_1000_400_200
+
+#ifdef CONFIG_SPL_BUILD
+#define CONFIG_SYS_INIT_SP_ADDR		0x02040000
+#else
+#define CONFIG_SYS_INIT_SP_ADDR		0x42E00000
+#endif
+
+/* #define EXYNOS_COPY_SPI_FNPTR_ADDR	0x02020058 */
 #elif defined(CONFIG_ARCH_EXYNOS4)
-#define COPY_BL2_SIZE		0x80000
-#define BL2_START_OFFSET	((CONFIG_ENV_OFFSET + CONFIG_ENV_SIZE)/512)
+#define COPY_UBOOT_SIZE		0x80000
+#define UBOOT_START_OFFSET	((RESERVE_BLOCK_SIZE + BL1_SIZE + BL2_SIZE) /512)
+#define UBOOT_SIZE_BLOC_COUNT	(COPY_UBOOT_SIZE /512)
+
+#define COPY_BL2_SIZE		0x4000
+#define BL2_START_OFFSET   ((RESERVE_BLOCK_SIZE + BL1_SIZE)/512)
 #define BL2_SIZE_BLOC_COUNT	(COPY_BL2_SIZE/512)
 #endif
 
 DECLARE_GLOBAL_DATA_PTR;
+gd_t gdata __attribute__ ((section(".data")));
+
 
 /* Index into irom ptr table */
 enum index {
@@ -255,15 +269,21 @@ void copy_uboot_to_ram(void)
 		break;
 #endif
 	case BOOT_MODE_SD:
+#if defined(CONFIG_EX4412)
+		offset = UBOOT_START_OFFSET;
+		size = UBOOT_SIZE_BLOC_COUNT;
+#else
 		offset = BL2_START_OFFSET;
 		size = BL2_SIZE_BLOC_COUNT;
+#endif
 		copy_bl2 = get_irom_func(MMC_INDEX);
 		break;
 #ifdef CONFIG_SUPPORT_EMMC_BOOT
 	case BOOT_MODE_EMMC:
 		/* Set the FSYS1 clock divisor value for EMMC boot */
+   #ifndef CONFIG_EX4412
 		emmc_boot_clk_div_set();
-
+   #endif
 		copy_bl2_from_emmc = get_irom_func(EMMC44_INDEX);
 		end_bootop_from_emmc = get_irom_func(EMMC44_END_INDEX);
 
@@ -286,9 +306,31 @@ void copy_uboot_to_ram(void)
 	default:
 		break;
 	}
+#ifdef CONFIG_TARGET_EX4412
+	if (copy_bl2) {
+       /*
+            * Here I use iram 0x020250000-0x020260000 (64k)
+            * as an buffer, and copy u-boot from sd card to 
+            * this buffer, then copy it to dram started 
+            * from 0x43e00000.
+            *
+            */
+           unsigned int i, count = 0;
+           unsigned char *buffer = (unsigned char *)0x02050000;
+           unsigned char *dst = (unsigned char *)CONFIG_TEXT_BASE;
+           unsigned int step = (0x10000 / 512);
 
-	if (copy_bl2)
+           for (count = 0; count < size; count += step) {
+               /* copy u-boot from sdcard to iram firstly.  */
+               copy_bl2((u32)(offset + count), (u32)step, (u32)buffer);
+	for (i = 0; i < 0x10000; i++) {
+                   *dst++ = buffer[i];
+               }
+           }
+   }
+#else
 		copy_bl2(offset, size, CONFIG_TEXT_BASE);
+#endif
 }
 
 void memzero(void *s, size_t n)
@@ -316,6 +358,7 @@ static void setup_global_data(gd_t *gdp)
 	gd->have_console = 1;
 }
 
+#include <version.h>
 void board_init_f(unsigned long bootflag)
 {
 	__aligned(8) gd_t local_gd;
@@ -325,11 +368,17 @@ void board_init_f(unsigned long bootflag)
 
 	if (do_lowlevel_init())
 		power_exit_wakeup();
+#ifdef CONFIG_DEBUG_UART
+/*	printascii("\r\nU-Boot SPL " PLAIN_VERSION " (" U_BOOT_DATE " - " U_BOOT_TIME ")\r\n"); */
+#endif
 
 	copy_uboot_to_ram();
 
 	/* Jump to U-Boot image */
 	uboot = (void *)CONFIG_TEXT_BASE;
+	printascii("finish BL1 copying,Jump to U-Boot image\n\r");
+/*        printhex8(uboot);   */
+        printascii("\n\r");  
 	(*uboot)();
 	/* Never returns Here */
 }

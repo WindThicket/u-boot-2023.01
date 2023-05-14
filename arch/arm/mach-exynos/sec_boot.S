@@ -11,7 +11,7 @@
 relocate_wait_code:
 	adr     r0, code_base		@ r0: source address (start)
 	adr     r1, code_end		@ r1: source address (end)
-	ldr     r2, =0x02073000		@ r2: target address
+	ldr     r2, =0x02073000		@ r2: target address 
 1:
 	ldmia   r0!, {r3-r6}
 	stmia   r2!, {r3-r6}

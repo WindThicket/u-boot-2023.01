@@ -284,7 +284,7 @@ struct exynos4x12_clock {
 	unsigned int	src_top0;
 	unsigned int	src_top1;
 	unsigned char	res20[0x8];
-	unsigned int	src_cam;
+	unsigned int	src_cam0;
 	unsigned int	src_tv;
 	unsigned int	src_mfc;
 	unsigned int	src_g3d;
@@ -321,7 +321,7 @@ struct exynos4x12_clock {
 	unsigned char	res30[0xb4];
 	unsigned int	div_top;
 	unsigned char	res31[0xc];
-	unsigned int	div_cam;
+	unsigned int	div_cam0;
 	unsigned int	div_tv;
 	unsigned int	div_mfc;
 	unsigned int	div_g3d;
