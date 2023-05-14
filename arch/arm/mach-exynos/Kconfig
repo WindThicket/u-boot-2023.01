@@ -77,6 +77,12 @@ config TARGET_ORIGEN
 	select EXYNOS4210
 	select SUPPORT_SPL
 
+config TARGET_EX4412
+	bool "Exynos4412 Ex4412 board"
+	select EXYNOS4412
+	select SUPPORT_SPL
+
+
 config TARGET_TRATS2
 	bool "Exynos4412 Trat2 board"
 
@@ -232,6 +238,7 @@ source "board/samsung/smdkv310/Kconfig"
 source "board/samsung/trats/Kconfig"
 source "board/samsung/universal_c210/Kconfig"
 source "board/samsung/origen/Kconfig"
+source "board/samsung/ex4412/Kconfig"
 source "board/samsung/trats2/Kconfig"
 source "board/samsung/odroid/Kconfig"
 source "board/samsung/arndale/Kconfig"

@@ -1,0 +1,12 @@
+if TARGET_EX4412
+
+config SYS_BOARD
+	default "ex4412"
+
+config SYS_VENDOR
+	default "samsung"
+
+config SYS_CONFIG_NAME
+	default "ex4412"
+
+endif

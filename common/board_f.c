@@ -963,7 +963,7 @@ static const init_fnc_t init_sequence_f[] = {
 	 * devices are probed again.
 	 *
 	 * This should happen as late as possible so that the window where a
-	 * watchdog device is not serviced is as small as possible.
+h * watchdog device is not serviced is as small as possible.
 	 */
 	cyclic_unregister_all,
 #if !defined(CONFIG_ARM) && !defined(CONFIG_SANDBOX) && \
@@ -975,12 +975,19 @@ static const init_fnc_t init_sequence_f[] = {
 
 void board_init_f(ulong boot_flags)
 {
+
+#ifdef CONFIG_SYS_GENERIC_GLOBAL_DATA
+	gd_t data;
+	gd = &data;
+	zero_global_data();
+#endif
+
 	gd->flags = boot_flags;
-	gd->have_console = 0;
+	gd->have_console = 1;
 
 	if (initcall_run_list(init_sequence_f))
 		hang();
-
+	printf("Uboot running.\n\r");
 #if !defined(CONFIG_ARM) && !defined(CONFIG_SANDBOX) && \
 		!defined(CONFIG_EFI_APP) && !CONFIG_IS_ENABLED(X86_64) && \
 		!defined(CONFIG_ARC)

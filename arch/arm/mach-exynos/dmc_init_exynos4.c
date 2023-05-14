@@ -25,8 +25,10 @@
 
 #include <config.h>
 #include <asm/arch/dmc.h>
+#include <debug_uart.h>
 #include "common_setup.h"
-#include "exynos4_setup.h"
+/*#include "exynos4_setup.h" */
+#include "ex4412_setup.h"
 
 struct mem_timings mem = {
 	.direct_cmd_msr = {
@@ -48,6 +50,46 @@ struct mem_timings mem = {
 	.dll_resync = FORCE_DLL_RESYNC,
 	.dll_on = DLL_CONTROL_ON,
 };
+
+
+#ifdef CONFIG_EX4412
+/*简易测试tiny4412内存情况,如果读出的值正常，即初步判断内存初始化正常*/
+void tiny4412_mem_test(void)
+{
+#ifdef CONFIG_DEBUG_UART
+	unsigned int i;
+
+	printascii("Simple Memory test start...\r\n");
+	printascii("write 0x12345678 ...\r\n");
+	for (i = 0x40000000;
+		i < 0x80000000; i+=0x10000000)
+	{
+		writel(0x12345678, i);
+		printascii("addr:0x");
+		printhex8(i);
+		printascii("--data:");
+		printascii("0x");
+		printhex8(readl(i));
+		printascii("\r\n");
+	}
+	printascii("write 0x89abcdef ...\r\n");
+	for (i = 0x4FFFFFFC;
+		i <= 0x7FFFFFFC; i+=0x10000000)
+	{
+		writel(0x89ABCDEF, i);
+		printascii("addr:0x");
+		printhex8(i);
+		printascii("--data:");
+		printascii("0x");
+		printhex8(readl(i));
+		printascii("\r\n");
+	}
+	printascii("Memory test end.\r\n\r\n");
+#endif		
+	
+}
+#endif
+
 static void phy_control_reset(int ctrl_no, struct exynos4_dmc *dmc)
 {
 	if (ctrl_no) {
@@ -80,89 +122,63 @@ static void dmc_config_mrs(struct exynos4_dmc *dmc, int chip)
 static void dmc_init(struct exynos4_dmc *dmc)
 {
 	/*
-	 * DLL Parameter Setting:
-	 * Termination: Enable R/W
-	 * Phase Delay for DQS Cleaning: 180' Shift
-	 */
-	writel(mem.control1, &dmc->phycontrol1);
-
-	/*
 	 * ZQ Calibration
 	 * Termination: Disable
 	 * Auto Calibration Start: Enable
 	 */
 	writel(mem.zqcontrol, &dmc->phyzqcontrol);
-	sdelay(0x100000);
+//	sdelay(0x100000);
 
-	/*
-	 * Update DLL Information:
-	 * Force DLL Resyncronization
-	 */
-	phy_control_reset(1, dmc);
-	phy_control_reset(0, dmc);
+	writel(0x71101008, &dmc->phycontrol0);
+	writel(0x7110100a, &dmc->phycontrol0);
+	writel(0x00000084, &dmc->phycontrol1);
+	writel(0x71101008, &dmc->phycontrol0);
+	writel(0x0000008c, &dmc->phycontrol1);
+	writel(0x00000084, &dmc->phycontrol1);
+	writel(0x0000008c, &dmc->phycontrol1);
+	writel(0x00000084, &dmc->phycontrol1);
 
-	/* Set DLL Parameters */
-	writel(mem.control1, &dmc->phycontrol1);
+	writel(0x0fff30ca, &dmc->concontrol);
 
-	/* DLL Start */
-	writel((mem.control0 | CTRL_START | CTRL_DLL_ON), &dmc->phycontrol0);
-
-	writel(mem.control2, &dmc->phycontrol2);
-
-	/* Set Clock Ratio of Bus clock to Memory Clock */
-	writel(mem.concontrol, &dmc->concontrol);
-
-	/*
-	 * Memor Burst length: 8
-	 * Number of chips: 2
-	 * Memory Bus width: 32 bit
-	 * Memory Type: DDR3
-	 * Additional Latancy for PLL: 1 Cycle
-	 */
 	writel(mem.memcontrol, &dmc->memcontrol);
 
 	writel(mem.memconfig0, &dmc->memconfig0);
-	writel(mem.memconfig1, &dmc->memconfig1);
 
+	writel(0x8000001D, &dmc->ivcontrol);
 	/* Config Precharge Policy */
 	writel(mem.prechconfig, &dmc->prechconfig);
 	/*
 	 * TimingAref, TimingRow, TimingData, TimingPower Setting:
 	 * Values as per Memory AC Parameters
 	 */
-	writel(mem.timingref, &dmc->timingref);
-	writel(mem.timingrow, &dmc->timingrow);
-	writel(mem.timingdata, &dmc->timingdata);
-	writel(mem.timingpower, &dmc->timingpower);
 
+	writel(0x0000005d, &dmc->timingref);
+	writel(0x34498691, &dmc->timingrow);
+	writel(0x36330306, &dmc->timingdata);
+	writel(0x50380365, &dmc->timingpower);
+	sdelay(0x100000);
 	/* Chip0: NOP Command: Assert and Hold CKE to high level */
-	writel(DIRECT_CMD_NOP, &dmc->directcmd);
+	writel(0x07000000, &dmc->directcmd);
 	sdelay(0x100000);
 
-	/* Chip0: EMRS2, EMRS3, EMRS, MRS Commands Using Direct Command */
-	dmc_config_mrs(dmc, 0);
+	writel(0x00071c00, &dmc->directcmd);
 	sdelay(0x100000);
 
-	/* Chip0: ZQINIT */
-	writel(DIRECT_CMD_ZQ, &dmc->directcmd);
+	writel(0x00010bfc, &dmc->directcmd);
 	sdelay(0x100000);
 
-	writel((DIRECT_CMD_NOP | DIRECT_CMD_CHIP1_SHIFT), &dmc->directcmd);
-	sdelay(0x100000);
+	writel(0x00000488, &dmc->directcmd);
+//	sdelay(0x100000);
 
-	/* Chip1: EMRS2, EMRS3, EMRS, MRS Commands Using Direct Command */
-	dmc_config_mrs(dmc, 1);
-	sdelay(0x100000);
 
-	/* Chip1: ZQINIT */
-	writel((DIRECT_CMD_ZQ | DIRECT_CMD_CHIP1_SHIFT), &dmc->directcmd);
-	sdelay(0x100000);
+	writel(0x00000810, &dmc->directcmd);
+//	sdelay(0x100000);
 
-	phy_control_reset(1, dmc);
-	sdelay(0x100000);
+	writel(0x00000c08, &dmc->directcmd);
+//	sdelay(0x100000);
 
 	/* turn on DREX0, DREX1 */
-	writel((mem.concontrol | AREF_EN), &dmc->concontrol);
+	writel(0x0FFF303a, &dmc->concontrol);
 }
 
 void mem_ctrl_init(int reset)
@@ -175,13 +191,12 @@ void mem_ctrl_init(int reset)
 	 * 0: full_sync
 	 */
 	writel(1, ASYNC_CONFIG);
-#ifdef CONFIG_TARGET_ORIGEN
-	/* Interleave: 2Bit, Interleave_bit1: 0x15, Interleave_bit0: 0x7 */
-	writel(APB_SFR_INTERLEAVE_CONF_VAL, EXYNOS4_MIU_BASE +
-		APB_SFR_INTERLEAVE_CONF_OFFSET);
-	/* Update MIU Configuration */
-	writel(APB_SFR_ARBRITATION_CONF_VAL, EXYNOS4_MIU_BASE +
-		APB_SFR_ARBRITATION_CONF_OFFSET);
+#ifdef CONFIG_EX4412
+	writel(0x13113113, 0x10030000 + 0x10500);
+
+	writel(0x00117713, 0x10040500);
+	writel(0x00000000, 0x10020a00);
+	writel(0x00010905, 0x10040a00);
 #else
 	writel(APB_SFR_INTERLEAVE_CONF_VAL, EXYNOS4_MIU_BASE +
 		APB_SFR_INTERLEAVE_CONF_OFFSET);

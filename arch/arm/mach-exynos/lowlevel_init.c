@@ -39,6 +39,7 @@
 #include "common_setup.h"
 #include "exynos5_setup.h"
 
+extern void mem_init(void);
 /* These are the things we can do during low-level init */
 enum {
 	DO_WAKEUP	= 1 << 0,
@@ -170,10 +171,38 @@ static void secondary_cores_configure(void)
 	dsb();
 	sev();
 }
-
 extern void relocate_wait_code(void);
 #endif
-
+/*
+void test_uart()
+ {
+ 	unsigned int addr = 0x11400000;
+ 	writel(0x22222222,addr);
+ 	writel(0x222222,addr+0x20);
+ 
+ 	addr = (unsigned int *)0x1003c250;
+ 	writel(0x666666,addr);
+ 	
+ 	addr = (unsigned int *)0x1003c250;
+       writel(0x777777,addr);
+ 
+ 	addr = (unsigned int *)0x13820000;
+ #define ULCON_OFFSET         0x00
+ #define UCON_OFFSET          0x04
+ #define UFCON_OFFSET         0x08
+ #define UBRDIV_OFFSET        0x28
+ #define UDIVLOT_OFFSET       0x2c
+ #define UTXH_OFFSET          0x20
+ 	writel(0x111, addr+UFCON_OFFSET);
+ 	writel(0x03, addr+ULCON_OFFSET);
+ 	writel(0x3c5, addr+UCON_OFFSET);
+ 	writel(0x35, addr+UBRDIV_OFFSET);
+ 	writel(0x3, addr+UDIVLOT_OFFSET);
+ 	writel(0x4f, addr+UTXH_OFFSET);
+ 	writel(0x4b, addr+UTXH_OFFSET);
+ 	return;
+ }
+*/
 int do_lowlevel_init(void)
 {
 	uint32_t reset_status;
@@ -200,7 +229,6 @@ int do_lowlevel_init(void)
 	/* Reconfigure secondary cores */
 	secondary_cores_configure();
 #endif
-
 	reset_status = get_reset_status();
 
 	switch (reset_status) {
@@ -222,14 +250,16 @@ int do_lowlevel_init(void)
 	if (actions & DO_CLOCKS) {
 		system_clock_init();
 #ifdef CONFIG_DEBUG_UART
-#if (defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_SERIAL)) || \
-    !defined(CONFIG_SPL_BUILD)
-		exynos_pinmux_config(PERIPH_ID_UART3, PINMUX_FLAG_NONE);
+/*#if (defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_SERIAL)) || \
+    !defined(CONFIG_SPL_BUILD) */
+		exynos_pinmux_config(PERIPH_ID_UART2, PINMUX_FLAG_NONE);
 		debug_uart_init();
-#endif
+/*#endif */
+		printascii("do_lowlevel_init ok\r\n");
 #endif
 		mem_ctrl_init(actions & DO_MEM_RESET);
-		tzpc_init();
+		
+/*		tzpc_init();   */
 	}
 
 	return actions & DO_WAKEUP;
